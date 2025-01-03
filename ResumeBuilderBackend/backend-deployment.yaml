@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: resume-builder-be-k8s
+        image: flowerking21/resume_be:latest
+        #image: ${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 4292
