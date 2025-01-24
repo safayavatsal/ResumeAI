@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  MONGO_URL: "mongodb+srv://**************/resume_builder"
+  JWT_SECRET_KEY: "MYREALLYSECRETKEY"
+  OPENAI_KEY: "OPENAI_API_KEY"
+  GMAIL_USER: "THIS EMAIL IS USED TO SEND RESUMES"
+  GMAIL_PASS: "PASSWORD USED BY NODEMAILER"
+  FRONT_END: "http://localhost:4292"
