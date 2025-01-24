@@ -4,8 +4,8 @@ pipeline {
         GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-service-account-key')
         SSH_KEY = credentials('ssh_poo')
         DOCKERHUB_CREDENTIALS = 'docker_poo'
-        DOCKER_IMAGE_RESUME_BUILDER_FRONTEND = 'flowerking21/resume_fe'
-        DOCKER_IMAGE_RESUME_BUILDER_BACKEND = 'flowerking21/resume_be'
+        DOCKER_IMAGE_RESUME_BUILDER_FRONTEND = 'gcr.io/flowerking21/resume_fe'
+        DOCKER_IMAGE_RESUME_BUILDER_BACKEND = 'gcr.io/flowerking21/resume_be'
         GCP_PROJECT = 'your-gcp-project-id'
         GKE_CLUSTER = 'poo-gke-cluster'
         GKE_REGION = 'us-central1'
@@ -21,7 +21,7 @@ pipeline {
         stage('CHECKOUT') {
             steps {
                 echo 'Cloning the Git repository'
-                git branch: 'main', url: 'https://github.com/flowerpoo/Resume_AI.git'
+                git branch: 'test-2', url: 'https://github.com/safayavatsal/Resume_AI.git'
             }
         }
 
@@ -70,7 +70,20 @@ pipeline {
                 }
             }
         }
-
+        
+        stage('Push to Google Container Registry') {
+            steps {
+                script {
+                    sh """
+                    docker tag ${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID} gcr.io/${env.GCP_PROJECT}/resume-be:${env.BUILD_ID}
+                    docker tag ${env.DOCKER_IMAGE_RESUME_BUILDER_FRONTEND}:${env.BUILD_ID} gcr.io/${env.GCP_PROJECT}/resume-fe:${env.BUILD_ID}
+                    docker push gcr.io/${env.GCP_PROJECT}/resume-be:${env.BUILD_ID}
+                    docker push gcr.io/${env.GCP_PROJECT}/resume-fe:${env.BUILD_ID}
+                    """
+                }
+            }
+        }
+        
         stage('GKE Connection and Deployment') {
             steps {
                 script {
@@ -83,10 +96,16 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG_PATH}
                         '''
 
+                        // Update Kubernetes YAML with dynamic Docker image tags
+                        sh '''
+                        sed -i "s|gcr.io/.*/resume-be:.*|gcr.io/${GCP_PROJECT}/resume-be:${BUILD_ID}|" ResumeBuilderBackend/backend-deployment.yaml
+                        sed -i "s|gcr.io/.*/resume-fe:.*|gcr.io/${GCP_PROJECT}/resume-fe:${BUILD_ID}|" ResumeBuilderAngular/frontend-deployment.yaml
+                        '''
+
                         // Apply Kubernetes configurations
                         sh '''
                         kubectl apply -f ResumeBuilderAngular/frontend-deployment.yaml
-                        kubectl apply -f ResumeBuilderAngular/backend-service.yaml
+                        kubectl apply -f ResumeBuilderAngular/frontend-service.yaml
                         kubectl apply -f ResumeBuilderBackend/backend-deployment.yaml
                         kubectl apply -f ResumeBuilderBackend/backend-service.yaml
                         '''
