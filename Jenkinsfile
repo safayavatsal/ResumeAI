@@ -1,12 +1,15 @@
 pipeline {
     agent any
-    environment{
-        AWS_ACCESS_KEY='IAM_Poo'
+    environment {
+        GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-service-account-key')
         SSH_KEY = credentials('ssh_poo')
-        DOCKERHUB_CREDENTIALS= 'docker_poo'
+        DOCKERHUB_CREDENTIALS = 'docker_poo'
         DOCKER_IMAGE_RESUME_BUILDER_FRONTEND = 'flowerking21/resume_fe'
         DOCKER_IMAGE_RESUME_BUILDER_BACKEND = 'flowerking21/resume_be'
-       
+        GCP_PROJECT = 'your-gcp-project-id'
+        GKE_CLUSTER = 'poo-gke-cluster'
+        GKE_REGION = 'us-central1'
+        KUBECONFIG_PATH = '/tmp/kubeconfig'
     }
 
     stages {
@@ -17,13 +20,13 @@ pipeline {
         }
         stage('CHECKOUT') {
             steps {
-                echo 'clone the git code' 
-                git branch: 'main', url:'https://github.com/flowerpoo/Resume_AI.git'
+                echo 'Cloning the Git repository'
+                git branch: 'main', url: 'https://github.com/flowerpoo/Resume_AI.git'
             }
         }
-        
-        stage('create .env'){
-            steps{
+
+        stage('Create .env') {
+            steps {
                 script {
                     def envContent = """
                         MONGO_URL='mongodb+srv://**************/resume_builder'
@@ -37,92 +40,59 @@ pipeline {
                 }
             }
         }
-        
-        
-        stage('build images') {
+
+        stage('Build Docker Images') {
             parallel {
-                stage('build backend') {
+                stage('Build Backend') {
                     steps {
                         script {
                             docker.build("${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}", './ResumeBuilderBackend/')
-                            //echo ("done")
                         }
                     }
                 }
-                stage('build frontend') {
+                stage('Build Frontend') {
                     steps {
                         script {
                             docker.build("${env.DOCKER_IMAGE_RESUME_BUILDER_FRONTEND}:${env.BUILD_ID}", './ResumeBuilderAngular/')
-                            // echo ("done")
                         }
                     }
                 }
             }
         }
-        
-        stage('push to docker'){
-            steps{
-                script{
+
+        stage('Push to DockerHub') {
+            steps {
+                script {
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
-                       docker.image("${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}").push()
-                       docker.image("${env.DOCKER_IMAGE_RESUME_BUILDER_FRONTEND}:${env.BUILD_ID}").push()
-                       //echo ("done")
+                        docker.image("${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}").push()
+                        docker.image("${env.DOCKER_IMAGE_RESUME_BUILDER_FRONTEND}:${env.BUILD_ID}").push()
                     }
                 }
             }
         }
-        
-        stage('eks connection'){
-            steps{
-                script{
-                     withCredentials([aws(credentialsId: 'IAM_Poo', region:'eu-west-2')]) {
-                        echo "login success"
-                        def eksClusterExists = sh(script: 'aws eks describe-cluster --name poo-eks-cluster-1 --region eu-west-2', 
-                        returnStatus: true) == 0
-                        if(!eksClusterExists)
-                        {
-                            sh '''
-                            eksctl create cluster --name poo-eks-cluster-1 --region eu-west-2 --nodegroup-name standard-workers --node-type t2.micro --nodes 2 --nodes-min 1 --nodes-max 3
-                            '''
-                        }
-                        else{
-                             sh '''
-                            kubectl version --client
-                       
-                           aws eks --region eu-west-2 update-kubeconfig --name poo-eks-cluster-1
-                        
-                          
-                           cd  ResumeBuilderAngular/
-                           kubectl apply -f frontend-deployment.yaml
-                           kubectl apply -f backend-service.yaml
-                          '''
-                            
-                        }
-                        
-                       
-                        
+
+        stage('GKE Connection and Deployment') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                        // Authenticate and configure GKE
+                        sh '''
+                        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                        gcloud config set project ${GCP_PROJECT}
+                        gcloud container clusters get-credentials ${GKE_CLUSTER} --region ${GKE_REGION} --kubeconfig=${KUBECONFIG_PATH}
+                        export KUBECONFIG=${KUBECONFIG_PATH}
+                        '''
+
+                        // Apply Kubernetes configurations
+                        sh '''
+                        kubectl apply -f ResumeBuilderAngular/frontend-deployment.yaml
+                        kubectl apply -f ResumeBuilderAngular/backend-service.yaml
+                        kubectl apply -f ResumeBuilderBackend/backend-deployment.yaml
+                        kubectl apply -f ResumeBuilderBackend/backend-service.yaml
+                        '''
                     }
                 }
             }
         }
-        
-        // stage("eks deployment"){
-        //     steps{
-        //         script{
-        //             withCredentials([aws(credentialsId: 'IAM_Poo', region:'eu-west-2')]) {
-        //                 sh '''
-        //                 kubectl version --client
-                       
-        //                 aws eks --region eu-west-2 update-kubeconfig --name poo-eks-cluster-1
-                        
-        //                 cd ResumeBuilderBackend/
-        //                 kubectl apply -f backend-deployment.yaml
-        //                 kubectl apply -f backend-service.yaml
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
-        
     }
 }
