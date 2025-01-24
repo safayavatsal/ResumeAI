@@ -16,9 +16,13 @@ spec:
       - name: resume-builder-be-k8s
         image: flowerking21/resume_be:latest
         #image: ${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}
+      - name: resume-builder-be-k8s
+        image: gcr.io/flowerking21/resume-be:latest
         resources:
           limits:
             memory: "512Mi"
             cpu: "500m"
         ports:
         - containerPort: 4292
+    nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool 
