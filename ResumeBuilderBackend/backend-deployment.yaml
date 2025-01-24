@@ -26,5 +26,8 @@ spec:
             cpu: "500m"
         ports:
         - containerPort: 4292
+      envFrom:
+        - configMapRef:
+            name: backend-config
     nodeSelector:
         cloud.google.com/gke-nodepool: default-pool 
