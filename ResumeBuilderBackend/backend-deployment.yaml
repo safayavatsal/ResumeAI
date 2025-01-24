@@ -14,10 +14,9 @@ spec:
     metadata:
       labels:
         app: backend
+        project: resumeai
     spec:
       containers:
-      - name: resume-builder-be-k8s
-        image: flowerking21/resume_be:latest
         #image: ${env.DOCKER_IMAGE_RESUME_BUILDER_BACKEND}:${env.BUILD_ID}
       - name: resume-builder-be-k8s
         image: gcr.io/flowerking21/resume-be:latest
