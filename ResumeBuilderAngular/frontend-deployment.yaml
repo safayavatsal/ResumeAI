@@ -3,6 +3,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
+  labels:
+    app: frontend
+    project: resumeai 
 spec:
   replicas: 1
   selector:
@@ -12,14 +15,17 @@ spec:
     metadata:
       labels:
         app: frontend
+        project: resumeai
     spec:
       containers:
       - name: resume-builder-fe-k8s
-        image: flowerking21/resume_fe:11
+        image: gcr.io/flowerking21/resume-fe:latest
         resources:
           limits:
             memory: "512Mi"
             cpu: "500m"
         ports:
         - containerPort: 4200
+    nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
         
